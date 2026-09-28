@@ -142,6 +142,8 @@ Titanic-Neural-Networks/
 │
 ├── README.md
 ├── titanic_neural_networks.ipynb
+├── matrices_confusion.png
+├── comparacion_modelos.png 
 └── .gitignore
 ```
 
