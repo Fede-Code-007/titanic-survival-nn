@@ -8,181 +8,186 @@ El objetivo principal fue experimentar con diferentes arquitecturas de redes neu
 
 ## Tecnologías utilizadas
 
-* Python
-* TensorFlow / Keras
-* Scikit-learn
-* Imbalanced-learn
-* Pandas
-* NumPy
-* Matplotlib
-* Seaborn
+* Python 3.12.3
+* TensorFlow 2.21.0
+* Keras 3.15.1
+* Scikit-learn 1.8.0
+* Imbalanced-learn 0.14.2
+* Pandas 3.0.2
+* NumPy 2.4.4
+* Matplotlib 3.10.8
+* Seaborn 0.13.2
 * Jupyter Notebook
 
 ## Dataset
 
-Se utiliza el dataset **Titanic**, disponible directamente mediante Seaborn:
+Se utiliza el dataset **Titanic**, disponible directamente mediante Seaborn.
 
-```python
-sns.load_dataset('titanic')
-```
+El objetivo es predecir la variable:
 
-El objetivo (`target`) es la variable `survived`:
+* `survived`: supervivencia del pasajero.
 
-* `0` → No sobrevivió
-* `1` → Sobrevivió
+  * `0`: No sobrevivió
+  * `1`: Sobrevivió
 
-Para el entrenamiento se utilizaron las siguientes características:
+Las variables utilizadas como características son:
 
-* `pclass`
-* `sex`
-* `age`
-* `sibsp`
-* `parch`
-* `fare`
-* `embarked`
+* `pclass`: clase del pasajero.
+* `sex`: sexo del pasajero.
+* `age`: edad.
+* `sibsp`: cantidad de hermanos/cónyuges a bordo.
+* `parch`: cantidad de padres/hijos a bordo.
+* `fare`: tarifa pagada.
+* `embarked`: puerto de embarque.
 
-Se eliminaron variables consideradas redundantes, irrelevantes para el objetivo o potencialmente problemáticas para el experimento.
+Se excluyen variables que podrían introducir información redundante o fuga de información respecto al objetivo, como `alive`.
 
 ## Preprocesamiento
 
-El notebook realiza diferentes etapas de preparación de los datos:
+El preprocesamiento se realiza teniendo en cuenta la separación entre los datos de entrenamiento y prueba para evitar contaminar el conjunto de evaluación externo.
 
-1. Selección de variables.
-2. Tratamiento de valores faltantes.
-3. Codificación de variables categóricas mediante `LabelEncoder`.
-4. Normalización mediante `StandardScaler`.
-5. Balanceo de clases mediante **SMOTE**.
+Las principales etapas son:
 
-El dataset original presenta un desbalance entre las clases de supervivencia. SMOTE se utiliza para generar ejemplos sintéticos de la clase minoritaria y obtener una distribución equilibrada para el experimento.
+1. Selección de las variables utilizadas.
+2. Eliminación de registros sin información en `embarked`.
+3. Codificación binaria de `sex`.
+4. Codificación **One-Hot** de `embarked`.
+5. Imputación de valores faltantes de `age` utilizando la mediana.
+6. Estandarización mediante `StandardScaler`.
+7. Balanceo de las clases mediante **SMOTE**.
+
+Durante la validación cruzada, las transformaciones se ajustan utilizando los datos de entrenamiento de cada fold. El conjunto de prueba externo no participa en estas transformaciones.
+
+SMOTE también se aplica únicamente sobre los datos de entrenamiento, manteniendo los datos de validación y prueba con su distribución original.
+
+## Reproducibilidad
+
+Se establece una semilla fija mediante:
+
+```python
+keras.utils.set_random_seed(42)
+```
+
+Esto permite obtener resultados reproducibles bajo el mismo entorno y configuración de ejecución.
 
 ## Modelos
 
-Se implementaron tres arquitecturas diferentes de redes neuronales.
+Se implementan y comparan tres arquitecturas de redes neuronales.
 
-### Modelo 1 — Baseline
+### Modelo 1
 
-* 1 capa oculta
-* 16 neuronas
-* Activación ReLU
-* Optimizador Adam
-* Learning rate: `0.01`
+* Capa de entrada.
+* Dense de 16 neuronas con activación ReLU.
+* Capa de salida de 1 neurona con activación Sigmoid.
+* Optimizador: Adam.
+* Learning rate: `0.01`.
 
-```text
-Input → Dense(16, ReLU) → Dense(1, Sigmoid)
-```
+### Modelo 2
 
-### Modelo 2 — Red más profunda
+* Capa de entrada.
+* Dense de 32 neuronas con activación Tanh.
+* Dense de 16 neuronas con activación Tanh.
+* Capa de salida de 1 neurona con activación Sigmoid.
+* Optimizador: Adam.
+* Learning rate: `0.001`.
 
-* 2 capas ocultas
-* 32 y 16 neuronas
-* Activación Tanh
-* Optimizador Adam
-* Learning rate: `0.001`
+### Modelo 3
 
-```text
-Input → Dense(32, Tanh) → Dense(16, Tanh) → Dense(1, Sigmoid)
-```
+* Capa de entrada.
+* Dense de 64 neuronas con activación ReLU.
+* Dropout de `0.3`.
+* Dense de 32 neuronas con activación ReLU.
+* Dropout de `0.2`.
+* Capa de salida de 1 neurona con activación Sigmoid.
+* Optimizador: SGD.
+* Learning rate: `0.01`.
+* Momentum: `0.9`.
 
-### Modelo 3 — Red con regularización
+## Estrategia de evaluación
 
-* 2 capas ocultas
-* 64 y 32 neuronas
-* Activación ReLU
-* Dropout de `0.3` y `0.2`
-* Optimizador SGD
-* Learning rate: `0.01`
+Para evaluar los modelos se utiliza **Stratified K-Fold Cross-Validation** con:
 
-```text
-Input → Dense(64, ReLU)
-      → Dropout(0.3)
-      → Dense(32, ReLU)
-      → Dropout(0.2)
-      → Dense(1, Sigmoid)
-```
+* 5 folds.
+* Mezcla aleatoria de los datos.
+* `random_state=42`.
+* Distribución de clases preservada mediante estratificación.
 
-## Evaluación
+En cada fold se realiza el siguiente procedimiento:
 
-Cada modelo se evalúa utilizando **Stratified 5-Fold Cross Validation**.
+1. Separación de los datos de entrenamiento y prueba.
+2. Imputación de `age`.
+3. Estandarización de las características.
+4. Separación de un 15 % del entrenamiento para validación.
+5. Aplicación de SMOTE únicamente sobre el conjunto de entrenamiento.
+6. Entrenamiento de la red neuronal.
+7. Aplicación de `EarlyStopping`.
+8. Evaluación sobre el conjunto de prueba del fold.
 
-Además, se utiliza `EarlyStopping` para detener el entrenamiento cuando la pérdida de validación deja de mejorar.
+Se utiliza `EarlyStopping` con una paciencia de 10 épocas y restauración de los mejores pesos.
 
-Las métricas utilizadas son:
+El entrenamiento tiene un máximo de 100 épocas y utiliza un `batch_size` de 32.
 
-* Accuracy
-* Precision
-* Recall
-* F1-Score
+## Métricas
 
-Para cada modelo se calcula la media y el desvío estándar de las métricas obtenidas en los cinco folds.
+Para comparar los modelos se calculan:
 
-También se generan matrices de confusión acumuladas para analizar las predicciones realizadas por cada arquitectura.
+* Accuracy: porcentaje de predicciones correctamente clasificadas sobre el total
+* Precision: proporción de predicciones positivas que fueron correctas.
+* Recall: proporción de casos positivos reales que fueron identificados correctamente.
+* F1-Score: media armónica entre Precision y Recall.
 
-## Resultados
+Los resultados obtenidos en los cinco folds se resumen mediante:
+
+**media ± desviación estándar**
+
+Esto permite observar tanto el rendimiento promedio como la variabilidad del modelo entre diferentes particiones de los datos.
+
+## Visualización de resultados
 
 El notebook genera dos visualizaciones principales.
 
 ### Matrices de confusión
 
-![Matrices de confusión](matrices_confusion.png)
+Se generan matrices de confusión normalizadas por fila para cada modelo.
 
-Las matrices permiten observar la cantidad de predicciones correctas e incorrectas para cada clase.
+Además del porcentaje correspondiente, se muestran los valores absolutos de las predicciones.
 
-### Comparación entre modelos
+Archivo generado:
 
-![Comparación de modelos](comparacion_modelos.png)
+```text
+matrices_confusion.png
+```
 
-El segundo gráfico permite comparar Accuracy, Precision, Recall y F1-Score entre las tres arquitecturas.
+### Comparación de modelos
 
-Los resultados concretos se encuentran en el notebook y pueden variar ligeramente dependiendo de las versiones de las librerías y de la ejecución.
+Se genera un gráfico comparativo de Accuracy, Precision, Recall y F1-Score para los tres modelos.
+
+Las barras representan el rendimiento promedio y las barras de error representan la **desviación estándar obtenida durante los cinco folds**.
+
+Archivo generado:
+
+```text
+comparacion_modelos.png
+```
 
 ## Estructura del proyecto
 
 ```text
-Titanic-Neural-Networks/
-│
-├── README.md
 ├── titanic_neural_networks.ipynb
 ├── matrices_confusion.png
-├── comparacion_modelos.png 
+├── comparacion_modelos.png
+├── requirements.txt
+├── README.md
 └── .gitignore
 ```
 
-## Cómo ejecutar el proyecto
+## Instalación y ejecución
 
-### 1. Instalar Python
+### 1. Clonar el repositorio
 
-Si no tenés Python instalado, descargalo desde la página oficial:
+Clonar el repositorio desde GitHub o descargarlo como archivo ZIP.
 
-https://www.python.org/downloads/
-
-Durante la instalación en Windows, asegurate de marcar la opción:
-
-```text
-Add Python to PATH
-```
-
-Una vez instalado, podés comprobar que funciona abriendo una terminal y ejecutando:
-
-```bash
-python --version
-```
-
-### 2. Clonar el repositorio
-
-Si no tenés Git instalado, podés descargarlo desde:
-
-https://git-scm.com/downloads
-
-Luego, desde una terminal:
-
-```bash
-git clone https://github.com/TU_USUARIO/Titanic-Neural-Networks.git
-cd Titanic-Neural-Networks
-```
-
-También podés descargar el repositorio directamente desde GitHub utilizando **Code → Download ZIP**.
-
-### 3. Crear un entorno virtual
+### 2. Crear un entorno virtual
 
 Desde la carpeta del proyecto:
 
@@ -190,7 +195,9 @@ Desde la carpeta del proyecto:
 python -m venv .venv
 ```
 
-En Windows, activá el entorno virtual con:
+### 3. Activar el entorno virtual
+
+En Windows:
 
 ```bash
 .venv\Scripts\activate
@@ -198,87 +205,47 @@ En Windows, activá el entorno virtual con:
 
 ### 4. Instalar las dependencias
 
-Con el entorno virtual activado:
-
 ```bash
-python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 5. Instalar Jupyter Notebook
-
-Ejecutá:
-
-```bash
-pip install notebook
-```
-
-### 6. Iniciar Jupyter Notebook
-
-Desde la carpeta del proyecto:
+### 5. Iniciar Jupyter Notebook
 
 ```bash
 jupyter notebook
 ```
 
-Esto abrirá **Jupyter Notebook en el navegador**.
+### 6. Ejecutar el notebook
 
-### 7. Abrir el notebook
-
-Dentro de Jupyter, abrí:
+Abrir:
 
 ```text
 titanic_neural_networks.ipynb
 ```
 
-Luego ejecutá las celdas en orden.
+y ejecutar todas las celdas en orden.
 
-También podés utilizar:
+Al finalizar se generarán:
 
-**Run → Run All Cells**
+* Las métricas de evaluación de los tres modelos.
+* El resumen de media y desviación estándar.
+* Las matrices de confusión.
+* El gráfico comparativo de métricas.
 
-para ejecutar todo el notebook de una vez.
+## Objetivos del proyecto
 
-### 8. Resultados
-
-Al ejecutar el notebook se realizarán:
-
-* Carga y exploración del dataset Titanic.
-* Limpieza y preprocesamiento de los datos.
-* Codificación de variables categóricas.
-* Normalización mediante `StandardScaler`.
-* Balanceo de clases mediante `SMOTE`.
-* Entrenamiento de tres redes neuronales.
-* Validación cruzada estratificada de 5 folds.
-* Aplicación de `EarlyStopping`.
-* Cálculo de Accuracy, Precision, Recall y F1-Score.
-* Generación de matrices de confusión.
-* Comparación gráfica de los modelos.
-
-Las figuras generadas se guardarán en la carpeta del proyecto:
-
-```text
-matrices_confusion.png
-comparacion_modelos.png
-```
-
-## Objetivos de aprendizaje
-
-Este proyecto fue desarrollado principalmente para practicar:
-
-* Construcción de redes neuronales con TensorFlow/Keras.
-* Clasificación binaria.
-* Preprocesamiento de datos.
-* Codificación de variables categóricas.
-* Normalización de características.
-* Balanceo de clases mediante SMOTE.
-* Validación cruzada estratificada.
-* Early Stopping.
-* Comparación de arquitecturas.
-* Evaluación mediante múltiples métricas.
-* Interpretación de matrices de confusión.
-
----
-
-
+* Practicar el desarrollo de redes neuronales con TensorFlow/Keras.
+* Aplicar técnicas de preprocesamiento de datos.
+* Trabajar con variables categóricas mediante One-Hot Encoding.
+* Gestionar valores faltantes mediante imputación.
+* Aplicar estandarización de características.
+* Trabajar con conjuntos de datos desbalanceados mediante SMOTE.
+* Evitar la contaminación del conjunto de prueba durante la validación.
+* Utilizar validación cruzada estratificada.
+* Implementar Early Stopping.
+* Comparar diferentes arquitecturas y optimizadores.
+* Analizar Accuracy, Precision, Recall y F1-Score.
+* Interpretar matrices de confusión.
+* Analizar la variabilidad de los resultados mediante media y desviación estándar.
+* Favorecer la reproducibilidad mediante semillas y versiones de dependencias.
 
