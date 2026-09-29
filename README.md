@@ -232,7 +232,7 @@ Al finalizar se generarán:
 * Las matrices de confusión.
 * El gráfico comparativo de métricas.
 
-## Objetivos del proyecto
+## ¿Cuáles fueron los objetivos del proyecto?
 
 * Practicar el desarrollo de redes neuronales con TensorFlow/Keras.
 * Aplicar técnicas de preprocesamiento de datos.
